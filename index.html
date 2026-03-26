@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EXODU'S PRICING TOOL PRO</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#e50914">
+
+<style>
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #0a0a0a;
+  color: #fff;
+}
+
+.container {
+  padding: 20px;
+  max-width: 520px;
+  margin: auto;
+}
+
+h1 {
+  text-align: center;
+  font-size: 22px;
+}
+
+button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 10px;
+  background: #e50914;
+  color: #fff;
+  font-size: 15px;
+  font-weight: bold;
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: 10px;
+  border: none;
+}
+
+.card {
+  background: #111;
+  padding: 16px;
+  border-radius: 12px;
+  margin-top: 15px;
+}
+
+.resultado-destaque {
+  font-size: 24px;
+  font-weight: bold;
+  color: #00ff88;
+}
+
+.alerta {
+  color: #ff4444;
+  font-size: 13px;
+}
+
+.sugestao {
+  color: #ffaa00;
+  font-size: 13px;
+}
+
+.hidden { display: none; }
+
+.dashboard {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 13px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container" id="home">
+  <h1>EXODU'S PRICING TOOL PRO</h1>
+  <button onclick="irCalc()">Calcular Preço</button>
+  <button onclick="irProdutos()">Meus Produtos</button>
+</div>
+
+<div class="container hidden" id="calc">
+  <h1>Precificação</h1>
+
+  <input id="nome" placeholder="Nome do Produto">
+  <input id="custo" type="number" placeholder="Custo do Produto">
+  <input id="adicional" type="number" placeholder="Custos adicionais">
+  <input id="taxa" type="number" placeholder="Taxas (%)">
+  <input id="margem" type="number" value="30">
+
+  <button onclick="toggleProfissional()">Modo Profissional</button>
+
+  <div id="profissional" class="hidden">
+    <input id="marketing" type="number" placeholder="Marketing (%)">
+    <input id="comissao" type="number" placeholder="Comissão (%)">
+    <input id="frete" type="number" placeholder="Frete (R$)">
+    <input id="embalagem" type="number" placeholder="Embalagem (R$)">
+    <input id="fixo" type="number" placeholder="Custo fixo (R$)">
+  </div>
+
+  <div id="resultado" class="card hidden"></div>
+
+  <button onclick="salvar()">Salvar Produto</button>
+  <button onclick="voltar()">Voltar</button>
+</div>
+
+<div class="container hidden" id="produtos">
+  <h1>Meus Produtos</h1>
+
+  <div class="dashboard" id="dashboard"></div>
+
+  <div id="lista"></div>
+
+  <button onclick="voltarHome()">Voltar</button>
+</div>
+
+<script>
+
+let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+let ultimo = null;
+
+function esconderTudo(){
+  document.querySelectorAll(".container").forEach(e=>e.classList.add("hidden"));
+}
+
+function irCalc(){
+  esconderTudo();
+  document.getElementById("calc").classList.remove("hidden");
+}
+
+function irProdutos(){
+  esconderTudo();
+  document.getElementById("produtos").classList.remove("hidden");
+  render();
+}
+
+function voltar(){
+  esconderTudo();
+  document.getElementById("home").classList.remove("hidden");
+}
+
+function voltarHome(){ voltar(); }
+
+function toggleProfissional(){
+  document.getElementById("profissional").classList.toggle("hidden");
+}
+
+document.querySelectorAll("input").forEach(input=>{
+  input.addEventListener("input", calcular);
+});
+
+function calcular(){
+
+  let custo = val("custo");
+  let adicional = val("adicional");
+  let taxa = val("taxa");
+  let margem = val("margem");
+
+  let marketing = val("marketing");
+  let comissao = val("comissao");
+  let frete = val("frete");
+  let embalagem = val("embalagem");
+  let fixo = val("fixo");
+
+  let custoTotal = custo + adicional + frete + embalagem + fixo;
+  let taxaTotal = taxa + marketing + comissao;
+
+  if((1 - taxaTotal/100 - margem/100) <= 0) return;
+
+  let preco = custoTotal / (1 - (taxaTotal/100) - (margem/100));
+  let lucro = preco - custoTotal;
+
+  let margemReal = (lucro / preco) * 100;
+
+  ultimo = {
+    nome: valText("nome") || "Produto",
+    preco, lucro, margemReal,
+    custo, adicional, taxa, margem,
+    marketing, comissao, frete, embalagem, fixo
+  };
+
+  let alerta = "";
+  let sugestao = "";
+
+  if(margemReal < 10){
+    alerta = "⚠️ Margem muito baixa";
+  }
+
+  if(margemReal < 20){
+    let novoPreco = preco * 1.1;
+    sugestao = `💡 Sugestão: vender por R$ ${novoPreco.toFixed(2)}`;
+  }
+
+  document.getElementById("resultado").classList.remove("hidden");
+  document.getElementById("resultado").innerHTML = `
+    <h2>${ultimo.nome}</h2>
+    <p class="resultado-destaque">R$ ${preco.toFixed(2)}</p>
+    <p>Lucro: R$ ${lucro.toFixed(2)}</p>
+    <p>Margem real: ${margemReal.toFixed(1)}%</p>
+    <p class="alerta">${alerta}</p>
+    <p class="sugestao">${sugestao}</p>
+  `;
+}
+
+function val(id){ return parseFloat(document.getElementById(id).value) || 0; }
+function valText(id){ return document.getElementById(id).value; }
+
+function salvar(){
+  if(!ultimo) return alert("Preencha os dados!");
+
+  produtos.push(ultimo);
+  localStorage.setItem("produtos", JSON.stringify(produtos));
+  alert("Salvo com sucesso!");
+  render();
+}
+
+// ======== FUNÇÃO DE EDIÇÃO ========
+function editar(i){
+  let p = produtos[i];
+
+  document.getElementById("nome").value = p.nome || "";
+  document.getElementById("custo").value = p.custo || 0;
+  document.getElementById("adicional").value = p.adicional || 0;
+  document.getElementById("taxa").value = p.taxa || 0;
+  document.getElementById("margem").value = p.margem || 30;
+
+  if(p.marketing !== undefined){
+    document.getElementById("marketing").value = p.marketing || 0;
+    document.getElementById("comissao").value = p.comissao || 0;
+    document.getElementById("frete").value = p.frete || 0;
+    document.getElementById("embalagem").value = p.embalagem || 0;
+    document.getElementById("fixo").value = p.fixo || 0;
+    document.getElementById("profissional").classList.remove("hidden");
+  }
+
+  produtos.splice(i, 1);
+  localStorage.setItem("produtos", JSON.stringify(produtos));
+
+  irCalc();
+  calcular();
+}
+
+// ======== FUNÇÃO DE DUPLICAR ========
+function duplicar(i){
+  let p = produtos[i];
+  let copia = {...p};
+  copia.nome = copia.nome + " (cópia)";
+  produtos.push(copia);
+  localStorage.setItem("produtos", JSON.stringify(produtos));
+  render();
+}
+
+function excluir(i){
+  produtos.splice(i,1);
+  localStorage.setItem("produtos", JSON.stringify(produtos));
+  render();
+}
+
+// ======== FUNÇÃO RENDER COMPLETA ========
+function render(){
+
+  let lista = document.getElementById("lista");
+  let dash = document.getElementById("dashboard");
+
+  lista.innerHTML = "";
+
+  let total = produtos.length;
+  let lucroMedio = 0;
+  let melhor = 0;
+
+  produtos.forEach(p=>{
+    lucroMedio += p.lucro;
+    if(p.lucro > melhor) melhor = p.lucro;
+  });
+
+  if(total > 0) lucroMedio /= total;
+
+  dash.innerHTML = `
+  <div>📦 ${total} produtos</div>
+  <div>💰 R$ ${lucroMedio.toFixed(2)}</div>
+  <div>🏆 R$ ${melhor.toFixed(2)}</div>
+`;
+
+  produtos.forEach((p,i)=>{
+    let card = document.createElement("div");
+    card.className = "card";
+
+    card.innerHTML = `
+      <h3>${p.nome}</h3>
+      <p>R$ ${p.preco.toFixed(2)}</p>
+      <p>Lucro: R$ ${p.lucro.toFixed(2)}</p>
+    `;
+
+    let btnEditar = document.createElement("button");
+    btnEditar.textContent = "Editar";
+    btnEditar.onclick = ()=>editar(i);
+
+    let btnDuplicar = document.createElement("button");
+    btnDuplicar.textContent = "Duplicar";
+    btnDuplicar.onclick = ()=>duplicar(i);
+
+    let btnExcluir = document.createElement("button");
+    btnExcluir.textContent = "Excluir";
+    btnExcluir.onclick = ()=>excluir(i);
+
+    card.appendChild(btnEditar);
+    card.appendChild(btnDuplicar);
+    card.appendChild(btnExcluir);
+
+    lista.appendChild(card);
+  });
+}
+
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js')
+    .then(reg => { reg.update(); });
+}
+</script>
+
+<div style="text-align:center; font-size:10px; color:#555; margin:25px 0; opacity:0.6;">
+  EXODU’S © 2026 • Developed by Frank Elvis Sá
+</div>
+
+</body>
+</html>
